@@ -6,30 +6,30 @@
 
 保留前は、FM ステレオ放送の受信機を 2 つのトラックで構成していた。
 
-- **algo**(`src/algo/`): Python/NumPy で送信〜通信路〜受信を丸ごとモデル化し、方式と数値を確立する場。
-- **hdl**(`src/hdl/`): algo で確立した方式を Tang Nano 9K(Gowin GW1NR-9C)向け SystemVerilog に実装する場。
+- **algo**(`src/algo/`): Python/NumPy で送信〜通信路〜受信を一貫してモデル化し、方式と数値を確立するトラック。
+- **hdl**(`src/hdl/`): algo で確立した方式を Tang Nano 9K(Gowin GW1NR-9C)向け SystemVerilog に実装するトラック。
 
 設計の原則: **algo で検証していない方式を hdl に実装しない。** この原則は再開時もそのまま適用する。
 
-## 全体ビジョン(North Star)と MVP の線引き
+## 全体ビジョン(North Star)と MVP の区分
 
 到達ビジョンの全体図は [diagrams/system-architecture.mmd](diagrams/system-architecture.mmd)。FPGA を 2 層に分けて構想している。
 
-- **Muscle(Adaptive Audio Path)**: RF 受信 → DDC/復調 → 適応オーディオ(Sfumato DSP Core)→ 出力。音を通す本線。
+- **Muscle(Adaptive Audio Path)**: RF 受信 → DDC/復調 → 適応オーディオ(Sfumato DSP Core)→ 出力。音声信号の主経路。
 - **Brain(Context Awareness Engine)**: マイク入力 → 特徴量 → コンテキスト認識 → パラメータ制御。環境に応じて Muscle のエフェクトを動的に書き換える(Register Bus 経由の "Morphing")。
 
-実装射程を MVP とビジョンに線引きしていた。MVP はビジョンの Muscle 最小経路に対応する。
+実装範囲を MVP とビジョンに区分していた。MVP はビジョンの Muscle 最小経路に対応する。
 
 | 区分 | 範囲 | 正本 |
 |---|---|---|
-| **MVP** | Muscle の最小経路: RF 受信 → 復調 → 出力(自作 ΣΔ DAC)。FM をステレオで鳴らす | [roadmap-hardware.md](roadmap-hardware.md) Phase 2(Phase 1 = モデル) |
+| **MVP** | Muscle の最小経路: RF 受信 → 復調 → 出力(自作 ΣΔ DAC)。FM ステレオ放送を受信・再生する | [roadmap-hardware.md](roadmap-hardware.md) Phase 2(Phase 1 = モデル) |
 | **ビジョン: 適応オーディオ** | Sfumato DSP Core(Adaptive EQ / Compressor / Ambience) | roadmap-hardware Phase 3 / [../philosophy.md](../philosophy.md) |
 | **ビジョン: コンテキスト認識** | Brain(特徴量 + 推論 + パラメータ制御) | roadmap-hardware Phase 4 / [adr-003](adr/adr-003-brain-implementation-approach.md) |
 
-Brain / Muscle の二層は思想(思考する身体・境界を溶かす)を構成へ写したものである。**思想の正本は [../philosophy.md](../philosophy.md)**。用語と責務構成は次のとおり:
+Brain / Muscle の二層は、思想(知覚し適応する身体・境界の融解)をシステム構成へ対応付けたものである。**思想の正本は [../philosophy.md](../philosophy.md)**。用語と責務構成は次のとおり:
 
-- **基盤(substrate)= FM 放送リンク**: 変調・通信路・復調。sfumato の核ではなく土台。責務名 **radio**(= `src/algo/radio/`)。
-- **sfumato の核 = 境界を溶かす層**: 適応オーディオ(morph)+ コンテキスト認識(context)。図の "Sfumato DSP Core" + "Brain"。将来(Phase 3 / 4)。パッケージ `src/algo/morph/` `src/algo/context/` は構想のみで未作成。
+- **基盤(substrate)= FM 放送リンク**: 変調・通信路・復調。sfumato の核ではなく基盤。責務名 **radio**(= `src/algo/radio/`)。
+- **sfumato の核 = 境界を融解させる層**: 適応オーディオ(morph)+ コンテキスト認識(context)。図の "Sfumato DSP Core" + "Brain"。将来(Phase 3 / 4)。パッケージ `src/algo/morph/` `src/algo/context/` は構想のみで未作成。
 
 ## hdl の構成
 
@@ -40,6 +40,6 @@ Brain / Muscle の二層は思想(思考する身体・境界を溶かす)を構
 - `constraints/tangnano9k.cst` … ピン制約。
 - ビルドは `src/hdl/Makefile`(yosys → nextpnr-himbaechel → gowin_pack → openFPGALoader)。ルートから `make -C src/hdl <target>`。
 
-RF 入力方式は **低IF + 高速 ADC 1個で実数標本化**(方式A、[adr/adr-001-rf-frontend-low-if-adc.md](adr/adr-001-rf-frontend-low-if-adc.md))。アンテナ → BPF/LNA → ミキサ(LO: Si5351)→ 低IF(`CARRIER_FREQ` = 250 kHz に整合)→ 高速 ADC(`RF_FS` = 2.304 MSPS 相当を狙う)→ FPGA。これによりモデルの受信器(digital mix で選局する RF 段)をそのまま RTL 化の基準にできる。音声出力は FPGA 内製の ΣΔ DAC → RC フィルタ → イヤホンジャック(方式は [adr-002](adr/adr-002-audio-output-sigma-delta-dac.md)、I2S 外部 DAC は任意上位)。
+RF 入力方式は **低IF + 高速 ADC 1個で実数標本化**(方式A、[adr/adr-001-rf-frontend-low-if-adc.md](adr/adr-001-rf-frontend-low-if-adc.md))。アンテナ → BPF/LNA → ミキサ(LO: Si5351)→ 低IF(`CARRIER_FREQ` = 250 kHz に整合)→ 高速 ADC(`RF_FS` = 2.304 MSPS 相当を狙う)→ FPGA。これによりモデルの受信機(デジタル混合で選局する RF 段)をそのまま RTL 化の基準とできる。音声出力は FPGA 内製の ΣΔ DAC → RC フィルタ → イヤホンジャック(方式は [adr-002](adr/adr-002-audio-output-sigma-delta-dac.md)、I2S 外部 DAC は任意上位)。
 
-モデルの各ブロックを RTL へどの順序・粒度で落とすかは未確定。再開時に ADR を追加し、algo ↔ hdl の対応表(方式 / 定数 → モジュール / ステータス / 関連 ADR)を本ファイルに設ける。
+モデルの各ブロックを RTL へ移植する順序と粒度は未確定である。再開時に ADR を追加し、algo ↔ hdl の対応表(方式 / 定数 → モジュール / ステータス / 関連 ADR)を本ファイルに設ける。

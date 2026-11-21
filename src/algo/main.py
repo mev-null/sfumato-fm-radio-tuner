@@ -19,14 +19,14 @@ def main():
     RadioUI.header()
 
     # --- 設定 ---
-    # パス解決(CWD 非依存): 入力 inputs/・出力 outputs/ をプロジェクトルート基準に。
+    # パス解決(カレントディレクトリに依存しない): 入力 inputs/・出力 outputs/ をプロジェクトルート基準とする。
     root_dir = Path(__file__).resolve().parents[2]  # プロジェクトルート
     INPUT_FILE = str(root_dir / settings.INPUT_FILE)
     base_name = os.path.splitext(os.path.basename(INPUT_FILE))[0]
     OUTPUT_FILE = str(root_dir / "outputs" / f"{base_name}_restored.wav")
     TARGET_SNR = settings.DEFAULT_SNR_DB
 
-    # テスト音源生成
+    # 入力音源が存在しない場合は試験信号を合成する
     if not os.path.exists(INPUT_FILE):
         RadioUI.log(
             "SYSTEM",
@@ -34,7 +34,7 @@ def main():
             RadioUI.YELLOW,
         )
         source = AudioSource()
-        # ステレオ時報の生成 (L=Low, R=High)
+        # ステレオ時報信号の生成 (L: 低い周波数, R: 高い周波数)
         melody = source.stereo_time_tone()
         save_audio(melody, fs=48000, filename=INPUT_FILE)
 
@@ -57,7 +57,7 @@ def main():
     print(f"{RadioUI.BOLD}--- [2] Wireless Channel ---{RadioUI.RESET}")
     RadioUI.log("CHANNEL", f"Applying AWGN (SNR={TARGET_SNR}dB)...", RadioUI.YELLOW)
 
-    # ノイズ付加
+    # AWGN の付加
     noisy_rf_signal = add_awgn(rf_signal, TARGET_SNR)
     time.sleep(1)
 
@@ -71,11 +71,11 @@ def main():
     RadioUI.log("DEMODULATION", "Quadrature Demodulation to MPX...", RadioUI.CYAN)
     mpx_signal = rx.process(noisy_rf_signal)
 
-    # B. パイロット抽出 & キャリア再生
+    # B. パイロットへの同期と 38kHz 搬送波の再生
     RadioUI.log("STEREO", "Recovering 38kHz Sub-carrier...", RadioUI.CYAN)
     carrier_38k = rx._recover_carrier(mpx_signal)
 
-    # C. ステレオ分離 (Matrix Decoding)
+    # C. ステレオ分離 (マトリクス復号)
     RadioUI.log("STEREO", "Decoding L/R Channels...", RadioUI.CYAN)
     demodulated_audio = rx._stereo_decode(mpx_signal, carrier_38k)
 
@@ -83,15 +83,15 @@ def main():
     print(f"\n{RadioUI.BOLD}--- [4] Output ---{RadioUI.RESET}")
     RadioUI.log("IO", f"Saving audio to {OUTPUT_FILE}", RadioUI.GREEN)
 
-    # normalize=Falseにして、入力と音量レベルを比較しやすくする
+    # ピークを gain に正規化して保存する(入力との振幅比較には normalize=False を用いる)
     save_audio(demodulated_audio, rx.audio_fs, OUTPUT_FILE, normalize=True, gain=0.9)
     RadioUI.reception_success(OUTPUT_FILE)
 
-    # --- 5. グラフ表示 (ステレオ対応版) ---
+    # --- 5. 解析グラフの生成 (ステレオ) ---
     try:
         RadioUI.log("VISUALIZER", "Generating Stereo Analysis Graph...", RadioUI.DIM)
 
-        # ヘルパー関数: 確実に (N, 2) に整形して L, R を返す
+        # 補助関数: 入力形状によらず L, R の 2 系列を返す
         def split_channels(data):
             # 1次元 (N,) -> モノラル (L=R)
             if data.ndim == 1:
@@ -106,12 +106,12 @@ def main():
             else:
                 raise ValueError(f"Unexpected data shape: {data.shape}")
 
-        # 入力と出力を安全に分離
+        # 入力・出力を L/R 系列に分解する
         in_l, in_r = split_channels(audio_data)
         out_l, out_r = split_channels(demodulated_audio)
 
-        # 時間波形は受信フィルタの群遅延ぶん遅れ、振幅スケールも異なる。
-        # 相互相関で遅延を推定して整列し、振幅を合わせ、定常区間を重ねる(表示のみ)。
+        # 復調波形は受信フィルタの群遅延だけ遅延し、振幅スケールも入力と異なる。
+        # 相互相関で遅延を推定して時間整列し、RMS で振幅を整合させ、定常区間を重ねて表示する(表示専用)。
         def estimate_lag(in_ch, out_ch):
             m = min(len(in_ch), len(out_ch))
             seg = slice(m // 4, m // 4 + min(40000, m // 2))
@@ -149,7 +149,7 @@ def main():
         )
         plt.title(f"Left Channel (Time Domain, delay {delay_ms:.2f}ms aligned)")
         plt.xlabel("Time [ms]")
-        plt.ylabel("Amplitude")  # AC 信号なので 0 を中心に正負に振れる
+        plt.ylabel("Amplitude")  # 直流成分を持たない信号のため 0 を中心に正負へ振れる
         plt.legend(loc="upper right")
         plt.grid(True, alpha=0.3)
 

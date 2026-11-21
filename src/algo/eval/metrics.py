@@ -1,11 +1,12 @@
 """
 復調品質メトリクス（純粋関数）
 
-単位・規約の約束:
-- THD は「線形比」(無次元)。純音なら ~0、歪むほど大きい。
-- dB 系メトリクス(SINAD・セパレーション)は大きいほど良い。
-- 時間は秒。
+単位・規約:
+- THD は線形比(無次元)。純音入力で 0 に漸近し、歪みの増大に伴い増加する。
+- dB 系メトリクス(SINAD・セパレーション)は値が大きいほど良好。
+- 時間の単位は秒。
 
+使用する主な NumPy 関数:
 np.fft.rfft        # 実数信号 → 片側スペクトル
 np.fft.rfftfreq    # 各ビンの周波数 [Hz]
 np.abs / **2       # 振幅 → 電力
@@ -30,7 +31,7 @@ def thd(signal: np.ndarray, fs: float, f0: float, n_harmonics: int = 5) -> float
         n_harmonics: 評価する最高次数
 
     Returns:
-        THD(線形比、>= 0)。純音入力なら ~0。
+        THD(線形比、>= 0)。純音入力では 0 に漸近する。
     """
     X = np.fft.rfft(signal)
     delta_f = fs / len(signal)
@@ -46,7 +47,7 @@ def thd(signal: np.ndarray, fs: float, f0: float, n_harmonics: int = 5) -> float
 
 
 def sinad_db(signal: np.ndarray, fs: float, f0: float) -> float:
-    """SINAD [dB]。基本波電力 / (雑音+歪み)電力。大きいほど良い。"""
+    """SINAD [dB]。基本波電力 / (雑音+歪み)電力。値が大きいほど良好。"""
     X = np.fft.rfft(signal)
     power = np.abs(X) ** 2
 
@@ -62,14 +63,14 @@ def sinad_db(signal: np.ndarray, fs: float, f0: float) -> float:
 def channel_separation_db(out_driven: np.ndarray, out_silent: np.ndarray) -> float:
     """ステレオ・セパレーション [dB]。
 
-    片チャンネルだけにトーンを入れて受信したときの、
-    駆動側 ch 出力電力 / 無音側 ch への漏れ電力 を dB で返す。
+    一方のチャネルのみにトーンを入力して受信したときの、
+    駆動側 ch の出力電力 / 無音側 ch への漏洩電力 を dB で返す。
         separation = 10*log10( P(out_driven) / P(out_silent) )
-    大きいほど分離が良い(漏れが少ない)。
+    値が大きいほどクロストークが小さい。
 
     Args:
         out_driven: 駆動した側の出力 ch(例: L にトーン → L 出力)
-        out_silent: 無音にした側の出力 ch(例: R 出力 = 漏れ)
+        out_silent: 無音とした側の出力 ch(例: R 出力 = 漏洩成分)
     """
     p_driven = np.sum(out_driven**2)
     p_silent = np.sum(out_silent**2)
@@ -85,7 +86,7 @@ def pll_lock_time(
     """PLL ロック時間 [秒]。
 
     位相比較器の誤差 |error| が tol 未満になり、その後 hold_samples 連続で
-    tol 未満を維持し続けた最初の時刻を返す。最後までロックしなければ inf。
+    tol 未満を維持した最初の時刻を返す。系列の終端までロックしない場合は inf。
 
     Args:
         error_log: PilotPLL.process が返す誤差系列
@@ -104,6 +105,6 @@ def pll_lock_time(
     for i in range(idx_window):
         if current_sum == hold_samples:
             return i / fs
-        if i + hold_samples < len(is_ok):  # 次の窓があるときだけスライド
+        if i + hold_samples < len(is_ok):  # 後続の窓が存在する場合のみ窓を移動する
             current_sum += is_ok[i + hold_samples] - is_ok[i]
     return np.inf

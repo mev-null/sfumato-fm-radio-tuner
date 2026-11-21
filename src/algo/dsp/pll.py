@@ -14,17 +14,17 @@ class PilotPLL:
         """
         Args:
             fs: サンプリング周波数 (192000)
-            center_freq: ロックする目標周波数 (19000)
-            bandwidth: ループ帯域幅 (Hz)。ここが「反応速度」を決める。
-            out_phase_offset: 38kHz 出力搬送波に足す位相 [rad]。ループ自体は変えず、
-                NCO 出力だけ位相回転する(ステレオ検波の位相整合に使う)。
+            center_freq: 同期対象の公称周波数 (19000)
+            bandwidth: ループ帯域幅 (Hz)。ループの追従速度(応答帯域)を決定する。
+            out_phase_offset: 38kHz 出力搬送波に加算する位相 [rad]。ループ特性は変更せず、
+                NCO 出力にのみ位相回転を与える(ステレオ検波の位相整合に用いる)。
         """
         self.fs = fs
         self.center_freq = center_freq
         self.out_phase_offset = out_phase_offset
 
-        # --- 制御係数の計算 ---
-        # アナログPLLの理論式からデジタル係数を導出
+        # --- ループ係数の算出 ---
+        # 連続時間 2 次 PLL の設計式から離散時間の係数を導出する
         zeta = settings.PLL_DAMPING
 
         # 自然角周波数 wn
@@ -38,56 +38,56 @@ class PilotPLL:
 
         # --- 内部状態の初期化 ---
         self.phase = 0.0  # 現在のNCOの位相
-        self.freq_integrator = 0.0  # 積分器 (蓄積された周波数のズレ)
+        self.freq_integrator = 0.0  # 積分器 (周波数偏差の推定値)
 
     def process(self, signal_in: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         n_samples = len(signal_in)
 
         # 出力用バッファ
         carrier_38k = np.zeros(n_samples)
-        error_log = np.zeros(n_samples)  # デバッグ用
+        error_log = np.zeros(n_samples)  # 位相誤差の記録(ロック判定・解析用)
 
-        # ループごとの基準ステップ (19kHz進む分)
+        # 1 サンプルあたりの公称位相増分 (19kHz 相当)
         center_phase_step = 2 * np.pi * self.center_freq / self.fs
 
-        # 高速化のためローカル変数に展開
+        # 属性参照を避けるためローカル変数へ展開する
         current_phase = self.phase
         integrator = self.freq_integrator
 
         for i in range(n_samples):
             sample = signal_in[i]
 
-            # A. NCOの信号を作る (cos)
-            # 現在の位相から cos を計算
+            # A. NCO 出力の生成
+            # 現在位相における余弦値を求める
             nco_cos = np.cos(current_phase)
 
             # B. 位相比較器 (Phase Detector)
-            # 入力信号と NCO信号 を掛け算する
+            # 入力と NCO 出力の乗算による位相検波
             error = sample * nco_cos
 
             # C. ループフィルタ (Loop Filter)
-            # 1. 積分器を更新 (過去の蓄積 + 今回のズレ * beta)
+            # 1. 積分項の更新 (積分値 + beta × 位相誤差)
             integrator += self.beta * error
 
-            # 2. 制御量 u を計算 (積分器 + 今回のズレ * alpha)
+            # 2. 制御量 u の算出 (積分項 + alpha × 位相誤差)
             control = integrator + self.alpha * error
 
             # D. NCO更新 (Update Phase)
-            # 次の位相 = 現在 + 基準ステップ + 制御量(u)
+            # 次の位相 = 現在位相 + 公称位相増分 + 制御量 u
             current_phase += center_phase_step + control
 
-            # ラップアラウンド処理
+            # 位相を [0, 2π) の範囲に折り返す
             if current_phase > 2 * np.pi:
                 current_phase -= 2 * np.pi
             elif current_phase < 0:
                 current_phase += 2 * np.pi
 
             # E. 出力生成 (38kHz)
-            # 19kHzの位相(current_phase)を2倍して 38kHz の sin を作る。
-            # 位相補正 out_phase_offset を足してステレオ検波の位相を整合させる。
+            # 19kHz の位相(current_phase)を 2 倍して 38kHz の正弦波を生成する(周波数逓倍)。
+            # 位相補正 out_phase_offset を加算し、ステレオ検波の位相を整合させる。
             carrier_38k[i] = np.sin(2 * current_phase + self.out_phase_offset)
 
-            # ログ記録
+            # 位相誤差の記録
             error_log[i] = error
 
         self.phase = current_phase

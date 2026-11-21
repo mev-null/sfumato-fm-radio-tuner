@@ -1,15 +1,15 @@
 """
 復調品質の characterize(測定 → レポート → baseline.json 書き出し)。
 
-harness で回した復調出力を metrics 関数に通し、品質メトリクスの辞書を作る。
-これが baseline.json の schema であり、回帰ゲートの比較対象になる。
+harness で得た復調出力を metrics 関数で評価し、品質メトリクスの辞書を構成する。
+これが baseline.json の schema であり、回帰ゲートの比較対象となる。
 
 使い方:
     python -m algo.eval.characterize           # 測定してレポートを表示
     python -m algo.eval.characterize --update   # baseline.json を再生成(意図的更新)
 
-baseline の更新は「改善を確認したとき」だけ手動で行う(回帰ゲートが黙って
-基準値ごと動く事故を避ける)。方針は docs/adr/adr-005-demod-quality-gate.md。
+baseline の更新は改善を確認した場合に限り手動で行う(回帰ゲートの基準値が
+意図せず変更されることを防ぐ)。方針は docs/adr/adr-005-demod-quality-gate.md。
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from algo.eval.harness import one_channel_driven, run_pipeline, single_tone
 # baseline.json の所在(このモジュールと同じディレクトリ)
 BASELINE_PATH = Path(__file__).parent / "baseline.json"
 
-# schema のバージョン。条件・項目の構造を変えたら上げる。
+# schema のバージョン。条件・項目の構造を変更した場合は値を増やす。
 # v2: THD/SINAD の測定元をステレオ復調 L からモノラル復調(main=L+R)へ切替。
 SCHEMA_VERSION = 2
 
@@ -41,7 +41,7 @@ def current_conditions() -> dict:
 
 
 def build_report() -> dict:
-    """各シナリオを回しメトリクス値を集計する。baseline schema と同形を返す。
+    """各測定シナリオを実行し、メトリクス値を集計する。baseline schema と同形の辞書を返す。
 
     THD/SINAD は単一トーンのモノラル復調(main=L+R)、セパレーションは
     L 駆動・R 無音のステレオ復調で測る。

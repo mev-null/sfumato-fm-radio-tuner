@@ -1,9 +1,9 @@
 # HDL (Tang Nano 9K / Gowin GW1NR-9C)
 
 > **保留中のスキャフォールド(2026-08-31)**: 本プロジェクトの成果物は Python/NumPy の DSP モデル(`src/algo/`)であり、FPGA 移植は将来の拡張。経緯・計画・ハードウェア ADR は [docs/future/](../../docs/future/README.md)。
-> ビルドは本ディレクトリの `Makefile` で行い、リポジトリルートから `make -C src/hdl <target>` を叩く(一覧: `make -C src/hdl fpga-help`)。
+> ビルドは本ディレクトリの `Makefile` で行い、リポジトリルートから `make -C src/hdl <target>` を実行する(一覧: `make -C src/hdl fpga-help`)。
 
-SystemVerilog で書く RTL とテストベンチ、ピン制約を置く場所。現状は疎通用の `blink`(ランニングライト)のみ。
+SystemVerilog による RTL・テストベンチ・ピン制約を格納する。現状は動作確認用の `blink`(ランニングライト)のみ。
 
 ## ディレクトリ構成
 
@@ -22,7 +22,7 @@ src/hdl/
 
 ## 開発フロー
 
-ツールチェーンは [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build)(既定 `~/tools/oss-cad-suite`、別の場所なら `OSS_CAD_SUITE` で上書き)。最初に 1 度だけ有効化する(このシェルで):
+ツールチェーンは [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build)(既定 `~/tools/oss-cad-suite`、別の場所なら `OSS_CAD_SUITE` で上書き)。最初に 1 度だけ、実行中のシェルで有効化する:
 
 ```bash
 source src/hdl/activate-cad.sh
@@ -40,7 +40,7 @@ make -C src/hdl fpga-help  # ターゲット一覧(ツールチェーン不要)
 ```
 
 別モジュールを対象にするには `make -C src/hdl load TOP=fm_receiver` のように `TOP` を渡す。
-`/fpga` スラッシュコマンドは上記を各段で確認しながら回す手順。
+`/fpga` スラッシュコマンドは、上記を各段の結果を確認しながら順に実行する手順である。
 
 ## 規約(hdl 固有)
 
@@ -72,7 +72,7 @@ IO_PORT "led[0]" PULL_MODE=NONE DRIVE=8;
 
 ## テストベンチの波形出力
 
-`make -C src/hdl wave` は `src/hdl/build/<TOP>.vcd` を開く。シミュレーションのバイナリは `src/hdl` をカレントとして実行されるので、TB では `build/` 相対で指定すると噛み合う:
+`make -C src/hdl wave` は `src/hdl/build/<TOP>.vcd` を開く。シミュレーションのバイナリは `src/hdl` をカレントとして実行されるので、TB では `build/` からの相対パスで指定すると Makefile の想定と一致する:
 
 ```systemverilog
 initial begin
@@ -81,8 +81,8 @@ initial begin
 end
 ```
 
-実クロック 27 MHz のままだとシミュレーションで点滅が見えるまで時間がかかる。
-分周数を `parameter` にしておき、TB では小さい値を渡すのが定石。
+実クロック 27 MHz のままでは、シミュレーションで点滅を確認するまでに長時間を要する。
+分周数を `parameter` として定義し、TB では小さい値を渡すのが一般的な手法である。
 
 シミュレータは **verilator**(`--binary --timing --trace`)。`#delay` は `--timing`、
 `$dumpfile`/`$dumpvars` による VCD 出力は `--trace` で有効になる(いずれも Makefile で指定済み)。

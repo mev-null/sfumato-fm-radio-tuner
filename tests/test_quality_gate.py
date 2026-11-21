@@ -1,16 +1,16 @@
 """
 復調品質の回帰ゲート(roadmap 1.7)。
 
-実際の TX→通信路→RX パイプライン出力をメトリクスに通し、
-(A) 絶対しきい値ゲート と (B) baseline 回帰ゲート で品質を守る。
+実際の TX→通信路→RX パイプライン出力をメトリクスで評価し、
+(A) 絶対しきい値ゲート と (B) baseline 回帰ゲート により品質を保証する。
 
 運用方針(ラチェット):
-- 絶対しきい値ゲート(A)は市販製品(Sony)スペックを目標に置く。現行アルゴが
-  未達の間は strict xfail として CI を緑に保ちつつギャップを毎回計測する。
-  アルゴが仕様に到達すると xpass(strict→fail)で「ハードゲートへ昇格しろ」と
-  通知される。昇格は該当テストの xfail マークを外して行う。
-- 回帰ゲート(B)はハード。baseline からの劣化を毎 PR でブロックする(床を守る)。
-- しきい値・許容幅・PLL tol が None の間、baseline 未生成の間は skip する。
+- 絶対しきい値ゲート(A)は市販製品(Sony)のスペックを目標値とする。現行アルゴリズムが
+  未達の間は strict xfail とし、CI を成功状態に保ちつつ目標との差を毎回測定する。
+  アルゴリズムが仕様に到達すると xpass(strict により失敗扱い)となり、ハードゲートへの
+  昇格時期であることが通知される。昇格は該当テストの xfail マークを除去して行う。
+- 回帰ゲート(B)はハードゲートとする。baseline からの劣化を毎回のコミットで検出し、品質の下限を保持する。
+- しきい値・許容幅・PLL tol が None の場合、および baseline が未生成の場合は skip する。
 
 数値は利用者が確定する(rule 12 / docs/adr/adr-005-demod-quality-gate.md)。
 """
@@ -23,14 +23,14 @@ from algo.eval.characterize import build_report, current_conditions, load_baseli
 
 @pytest.fixture(scope="module")
 def report():
-    """TX/RX は重いので 1 セッションで 1 回だけ measure し、テスト間で共有する。"""
+    """TX/RX の計算コストが大きいため、測定はモジュール単位で 1 回のみ行い、テスト間で共有する。"""
     return build_report()
 
 
 # --- (A) 絶対しきい値ゲート(Sony スペック目標 / strict xfail で追跡) --------
-# dB 系(SINAD・セパレーション)は「大きいほど良い」→ 下限。
-# THD・ロック時間は「小さいほど良い」→ 上限。
-# 未達の間は xfail(緑)、到達すると xpass(strict→赤)でハードゲート昇格を促す。
+# dB 系(SINAD・セパレーション)は値が大きいほど良好 → 下限を課す。
+# THD・ロック時間は値が小さいほど良好 → 上限を課す。
+# 未達の間は xfail(成功扱い)、到達すると xpass(strict により失敗扱い)となりハードゲートへの昇格を促す。
 
 _SONY_TARGET = "Sony 製品スペック目標。到達したら xfail を外しハードゲートへ昇格する"
 
@@ -68,7 +68,7 @@ def test_pll_lock_within_budget(report):
 
 
 # --- (B) baseline 回帰ゲート ---------------------------------------------------
-# baseline.json の good 値から「良い向きと逆」に許容幅を超えて劣化したら fail。
+# baseline.json の基準値から、品質が低下する方向へ許容幅を超えて変化した場合に fail とする。
 
 
 def test_no_regression_against_baseline(report):
@@ -79,22 +79,22 @@ def test_no_regression_against_baseline(report):
     if base is None:
         pytest.skip("baseline.json 未生成(先に make characterize を実行する)")
 
-    # 条件が変わっていたら基準は無効。比較しない。
+    # 測定条件が異なる場合、基準値は無効であり比較しない。
     assert base["conditions"] == current_conditions(), (
-        "測定条件が baseline と異なる。make characterize で baseline を取り直す"
+        "測定条件が baseline と異なる。make characterize で baseline を再生成する"
     )
 
     tol = settings.REGRESSION_TOL
     cur = report["metrics"]
     base_m = base["metrics"]
 
-    # 大きいほど良い: 下振れを検出
+    # 値が大きいほど良好な指標: 低下を検出する
     assert cur["sinad_db"] >= base_m["sinad_db"] * (1 - tol)
     assert cur["separation_db"] >= base_m["separation_db"] * (1 - tol)
 
-    # 小さいほど良い: 上振れを検出
+    # 値が小さいほど良好な指標: 増加を検出する
     assert cur["thd"] <= base_m["thd"] * (1 + tol)
 
-    # PLL ロック時間は両側が None でないときだけ比較
+    # PLL ロック時間は双方が None でない場合のみ比較する
     if cur["pll_lock_time_s"] is not None and base_m["pll_lock_time_s"] is not None:
         assert cur["pll_lock_time_s"] <= base_m["pll_lock_time_s"] * (1 + tol)

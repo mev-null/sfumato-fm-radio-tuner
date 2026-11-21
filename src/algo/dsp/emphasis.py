@@ -5,8 +5,9 @@ from algo import settings
 
 class EmphasisFilter:
     """
-    FM放送用のプリエンファシス・ディエンファシスフィルタ (IIR)
-    アナログの時定数(tau)を、双一次変換でデジタルフィルタ係数に変換して適用する。
+    FM 放送用のプリエンファシス・ディエンファシスフィルタ。
+    アナログ時定数 tau から離散時間の係数を求めて適用する。プリエンファシスは
+    1 + s*tau の後退差分近似(FIR)、ディエンファシスは極 p = exp(-T/tau) の 1 次 IIR とする。
     """
 
     def __init__(
@@ -27,14 +28,14 @@ class EmphasisFilter:
 
     def _calc_coeffs(self, mode: str):
         """
-        デジタル・プリエンファシス/ディエンファシスの係数計算
+        プリエンファシス / ディエンファシスの離散時間係数を算出する
         """
         if mode == "pre":
             # --- Pre-emphasis (High-Shelf Filter) ---
 
             # y[n] = x[n] + alpha * (x[n] - x[n-1])
             # alpha = tau / T = tau * fs
-            # 1次微分 (High-pass) 成分を足し合わせる処理
+            # 1 次差分(高域通過)成分を原信号に加算する
 
             alpha = self.tau * self.fs  # 例: 50e-6 * 48000 = 2.4
 
@@ -47,13 +48,13 @@ class EmphasisFilter:
 
         else:
             # --- De-emphasis (Low-Pass Filter) ---
-            # 標準的な IIR LPF
+            # 1 次 IIR 低域通過フィルタ(直流利得 1)
             # y[n] = (1-p)*x[n] + p*y[n-1]  (p = exp(-1/(fs*tau)))
 
             dt = 1.0 / self.fs
-            p = np.exp(-dt / self.tau)  # 減衰係数
+            p = np.exp(-dt / self.tau)  # 極の位置
 
-            # IIRフィルタ係数
+            # IIR フィルタ係数
             # H(z) = (1-p) / (1 - p*z^-1)
             b = [1.0 - p]
             a = [1.0, -p]
@@ -62,12 +63,12 @@ class EmphasisFilter:
 
     def pre_emphasis(self, data: np.ndarray) -> np.ndarray:
         """
-        [送信] 高域をブーストする (High-shelf)
+        [送信] 高域を強調する (ハイシェルフ特性)
         """
         return signal.lfilter(self.b_pre, self.a_pre, data)
 
     def de_emphasis(self, data: np.ndarray) -> np.ndarray:
         """
-        [受信] 高域をカットしてノイズを除去する (Low-pass)
+        [受信] 高域を減衰させてプリエンファシスを補償し、高域雑音を抑圧する (低域通過特性)
         """
         return signal.lfilter(self.b_de, self.a_de, data)

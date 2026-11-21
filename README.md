@@ -13,7 +13,7 @@ An FM stereo broadcast chain, transmitter → AWGN channel → receiver, modeled
 
 ## Demo
 
-The receiver decodes real stereo music at commercial-tuner quality. Quality is measured rather than eyeballed: `make eval` runs a seeded, deterministic pipeline and gates the result against the Sony ST-5130 specification.
+The receiver decodes real stereo music at commercial-tuner quality. Quality is judged by measurement rather than by inspection: `make eval` runs a seeded, deterministic pipeline and gates the result against the Sony ST-5130 specification.
 
 | Metric | Current | Target (Sony ST-5130) | Status |
 |---|---|---|---|
@@ -80,7 +80,7 @@ Diagram source: [docs/diagrams/signal-chain.mmd](docs/diagrams/signal-chain.mmd)
 
 `make eval` (pytest) runs the TX → AWGN → RX pipeline with a fixed seed, twice per session: once with a single 1 kHz tone for THD and SINAD, once with a left-only stereo signal for separation. The result is checked in two ways ([ADR-005](docs/adr/adr-005-demod-quality-gate.md), `tests/test_quality_gate.py`):
 
-- **Absolute gates** are set top-down from the Sony ST-5130 spec, not from whatever the code happens to produce. A metric that has not reached its target is marked `xfail(strict=True)`: CI stays green, the gap is measured on every run, and the moment the algorithm crosses the line the test *xpasses* and turns red, which is the signal to remove the marker and promote it to a hard gate. THD and separation have been promoted this way; SINAD is still tracked.
+- **Absolute gates** are set top-down from the Sony ST-5130 spec, not from the values the current implementation produces. A metric that has not reached its target is marked `xfail(strict=True)`: CI stays green, the gap is measured on every run, and the moment the algorithm crosses the line the test *xpasses* and turns red, which is the signal to remove the marker and promote it to a hard gate. THD and separation have been promoted this way; SINAD is still tracked.
 - **A regression gate** compares every metric against `src/algo/eval/baseline.json` and fails hard on any move in the wrong direction beyond a 2 % tolerance. The baseline is rewritten only deliberately, by `make characterize`, and the diff is reviewed in the PR. If the measurement conditions change, the baseline is declared invalid instead of silently compared.
 
 The result is a ratchet: the regression gate holds the floor, the absolute gates pull toward the spec, and "done" is a measurement rather than an opinion.
@@ -121,7 +121,6 @@ All documents are in Japanese.
 | [docs/algorithm.md](docs/algorithm.md) | Algorithm walkthrough: modulation, demodulation, stereo MPX, emphasis, PLL, and the optimization record |
 | [docs/architecture.md](docs/architecture.md) | Signal design (rates and bands), pipeline, package layout, evaluation harness |
 | [docs/roadmap.md](docs/roadmap.md) | Progress and open items for the model |
-| [docs/adr/](docs/adr/) | Architecture decision records for the model (005–007) |
 | [docs/future/](docs/future/) | Deferred hardware track: FPGA plans, hardware ADRs (001–004), board-level diagram |
 | [docs/philosophy.md](docs/philosophy.md) | The design philosophy behind the project name |
 

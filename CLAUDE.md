@@ -7,7 +7,7 @@ FM ステレオ放送の送信〜通信路〜受信を Python/NumPy でモデル
 | 内容 | 正本 |
 |---|---|
 | 思想・哲学(sfumato / 身体性) | [docs/philosophy.md](docs/philosophy.md) |
-| 進捗・次にやること | [docs/roadmap.md](docs/roadmap.md) |
+| 進捗・今後の課題 | [docs/roadmap.md](docs/roadmap.md) |
 | 設計上の決定(ADR) | [docs/adr/](docs/adr/) |
 | システム構成・信号設計・評価基盤 | [docs/architecture.md](docs/architecture.md) |
 | アルゴリズムの解説 | [docs/algorithm.md](docs/algorithm.md) |
@@ -20,9 +20,9 @@ FM ステレオ放送の送信〜通信路〜受信を Python/NumPy でモデル
 
 ## 構成
 
-- `src/algo/` … Python パッケージ。責務は `radio/`(送信・通信路・受信)、`dsp/`(フィルタ・エンファシス・PLL)、`eval/`(メトリクス・決定論ハーネス・characterize)、`utils/`。物理定数・レート・評価条件・しきい値は `settings.py` が単一の出どころ。
+- `src/algo/` … Python パッケージ。責務は `radio/`(送信・通信路・受信)、`dsp/`(フィルタ・エンファシス・PLL)、`eval/`(メトリクス・決定論ハーネス・characterize)、`utils/`。物理定数・レート・評価条件・しきい値は `settings.py` を単一の定義元とする。
 - `tests/` … メトリクスの契約テストと品質ゲート(`make eval`。CI と同じ)。
-- `src/hdl/` … 保留中の FPGA スキャフォールド。独立した Makefile を持つ(`make -C src/hdl fpga-help`)。通常の開発では触らない。
+- `src/hdl/` … 保留中の FPGA スキャフォールド。独立した Makefile を持つ(`make -C src/hdl fpga-help`)。通常の開発では変更しない。
 
 ## 開発環境
 
@@ -46,12 +46,12 @@ make lint          # ruff check
 ### プロジェクト用スラッシュコマンド
 
 - `/sim-algo` … モデルを実行し、出力(復調音声・解析グラフ)を確認する一連のフロー。
-- `/fpga` … 保留中のハードウェア・トラック用。`src/hdl/` のビルドフロー(sim → synth → pnr → bitstream → load)を各段で確認しながら回す。
+- `/fpga` … 保留中のハードウェア・トラック用。`src/hdl/` のビルドフロー(sim → synth → pnr → bitstream → load)を、各段の結果を確認しながら順に実行する。
 
 ## 作業の進め方(規約)
 
 - **作業を始める前に [.claude/rules.md](.claude/rules.md) を読み、記載の遵守事項(禁止/必須)に常に従う。** 不可逆な操作、Git 運用、コーディング、デバッグ方針などの正本は rules.md。本ファイルと矛盾する場合は rules.md を優先する。
 - **進捗を動かしたら** [docs/roadmap.md](docs/roadmap.md) を直接更新する。進捗の状態は roadmap が正本。
 - **方針に関わる判断**が出たら、コードや roadmap ではなく **新しい ADR を追加**して決める([docs/adr/README.md](docs/adr/README.md) の書き方に従う)。
-- **信号設計(レート・帯域・方式)が確定したら** [docs/architecture.md](docs/architecture.md) に反映する。数値は `settings.py` を出どころとし、architecture.md からは参照して重複させない。
-- **品質の変更は測定で示す。** アルゴリズムに手を入れたら `make eval` を通し、改善なら `make characterize` で baseline を上げ、その diff を PR に含める。
+- **信号設計(レート・帯域・方式)が確定したら** [docs/architecture.md](docs/architecture.md) に反映する。数値は `settings.py` を定義元とし、architecture.md からは参照に留めて重複させない。
+- **品質の変更は測定で示す。** アルゴリズムを変更した場合は `make eval` を通過させ、改善が確認された場合は `make characterize` で baseline を更新し、その diff を PR に含める。

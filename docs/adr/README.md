@@ -6,8 +6,8 @@
 ここに置くのは **DSP モデル(`src/algo/`)と評価基盤に関する決定**。タイトルには `[algo]` を付ける。
 ハードウェア(FPGA 移植)に関する ADR 001〜004 は 2026-08-31 に保留(Deferred)とし、[../future/adr/](../future/adr/) へ移した。番号は欠番のまま残し、再開時に同じ番号で `docs/adr/` へ復帰させる。
 
-「やること/進捗」は [../roadmap.md](../roadmap.md)、「設計の現状」は [../architecture.md](../architecture.md) を参照。
-ここは「なぜそう決めたか」の経緯が積み上がる場所。
+進捗・今後の課題は [../roadmap.md](../roadmap.md)、設計の現状は [../architecture.md](../architecture.md) を参照。
+本ディレクトリには、決定の根拠と経緯を蓄積する。
 
 ## 一覧
 

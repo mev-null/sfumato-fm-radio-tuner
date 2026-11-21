@@ -16,13 +16,13 @@ class FmTransmitter:
         max_deviation: float = settings.MAX_DEVIATION,
     ):
         """
-        FM送信機 (ステレオ対応版)
+        FM ステレオ送信機モデル
         """
         self.fc = carrier_freq
         self.audio_fs = audio_fs
         self.rf_fs = rf_fs
         self.mpx_fs = mpx_fs
-        self.kf = max_deviation  # 変調感度 kf
+        self.kf = max_deviation  # 周波数偏移感度 kf [Hz / 単位振幅]
 
         self.PILOT_FREQ = settings.PILOT_FREQ
         self.SUB_FREQ = settings.SUB_FREQ
@@ -33,31 +33,31 @@ class FmTransmitter:
 
     def modulate(self, audio_data: np.ndarray) -> np.ndarray:
         """
-        ステレオ信号を受け取り、FM変調されたRF信号を返す(モノラル信号対応)
+        音声信号(ステレオ (N, 2) またはモノラル (N,))を FM 変調し、実数 RF 信号を返す
         """
-        # 1. 前処理 (L/R分離)
+        # 1. 前処理 (L/R チャネルへの分解とプリエンファシス)
         if audio_data.ndim == 2:
             l_ch = audio_data[:, 0]
             r_ch = audio_data[:, 1]
         else:
-            # モノラル入力の場合、L=Rとして扱う
+            # モノラル入力は L=R として扱う
             l_ch = audio_data
             r_ch = audio_data
 
         l_pre = self.emphasis.pre_emphasis(l_ch)
         r_pre = self.emphasis.pre_emphasis(r_ch)
 
-        # 2. アップサンプリング (Audio 48k -> MPX 192k)
+        # 2. 補間 (Audio 48k → MPX 192k)
         l_upsampled = self._upsample(l_pre, self.audio_fs, self.mpx_fs)
         r_upsampled = self._upsample(r_pre, self.audio_fs, self.mpx_fs)
 
-        # 3. MPX信号 (コンポジット) の生成
+        # 3. MPX 信号 (コンポジット信号) の生成
         mpx_signal = self._generate_mpx(l_upsampled, r_upsampled)
 
-        # 4. RFレートまでアップサンプリング (MPX 192k -> RF 2.3M)
+        # 4. RF レートへの補間 (MPX 192k → RF 2.304M)
         mpx_at_rf = self._upsample(mpx_signal, self.mpx_fs, self.rf_fs)
 
-        # 5.FM変調 (積分 -> 位相回転)
+        # 5. FM 変調 (MPX の時間積分を搬送波の位相に加算)
         num_samples = len(mpx_at_rf)
         t = np.arange(num_samples) / self.rf_fs
 
@@ -70,7 +70,7 @@ class FmTransmitter:
 
     def _upsample(self, data: np.ndarray, fs_from: float, fs_to: float) -> np.ndarray:
         """
-        整数倍のアップサンプリングを行う
+        整数比の補間を行う(ポリフェーズ FIR によるアップサンプリング)
         """
         up_factor = int(fs_to // fs_from)
 
@@ -82,9 +82,9 @@ class FmTransmitter:
         r_signal: np.ndarray,
     ) -> np.ndarray:
         """
-        L/R信号(192kHz)からMPX信号(192kHz)を生成
+        L/R 信号(192kHz)から MPX 信号(192kHz)を生成する
 
-        ミキシングバランス
+        各成分の振幅配分(変調度の比率)
             - Main (L+R): 45%
             - Sub  (L-R): 45%
             - Pilot     : 10%
@@ -100,11 +100,11 @@ class FmTransmitter:
         pilot = 0.1 * np.sin(2 * np.pi * self.PILOT_FREQ * t)
 
         # 3. Sub Channel (L-R) DSB-SC (38kHz)
-        # AM変調: 搬送波(sin 38k) と信号を掛け算
+        # DSB-SC 変調: L-R 信号と 38kHz 副搬送波(sin)の乗算
         carrier = np.sin(2 * np.pi * self.SUB_FREQ * t)
         sub = ((l_signal - r_signal) * 0.45) * carrier
 
-        # 合成
+        # MPX 合成
         mpx = main + pilot + sub
 
         return mpx

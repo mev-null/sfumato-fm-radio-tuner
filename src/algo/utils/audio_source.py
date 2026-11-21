@@ -14,7 +14,7 @@ class AudioSource:
         self, frequency: float, duration: float, amplitude: float = 0.8
     ) -> np.ndarray:
         """
-        [モノラル] 指定した周波数の正弦波（サイン波）を生成します。
+        [モノラル] 指定周波数の正弦波を生成する。
 
         Args:
             frequency: 周波数 (Hz) 例: 440.0
@@ -32,7 +32,7 @@ class AudioSource:
         self, freq_l: float, freq_r: float, duration: float, amplitude: float = 0.5
     ) -> np.ndarray:
         """
-        [ステレオ] 左右で異なる周波数の正弦波を生成します。
+        [ステレオ] 左右で異なる周波数の正弦波を生成する。
 
         Args:
             freq_l: 左チャンネルの周波数 (Hz)
@@ -56,7 +56,7 @@ class AudioSource:
 
     def time_tone(self) -> np.ndarray:
         """
-        [モノラル] 時報 (Time Signal) 生成ロジック
+        [モノラル] 時報信号 (Time Signal) を生成する
         """
         fs = self.fs
 
@@ -81,7 +81,7 @@ class AudioSource:
         freq_r_long: float = 1320.0,
     ) -> np.ndarray:
         """
-        [ステレオ] 左右で異なる周波数の時報（Time Signal）を生成
+        [ステレオ] 左右で異なる周波数の時報信号 (Time Signal) を生成する
 
         Args:
             freq_l_short: 左チャンネルの短い音 (Hz)
@@ -103,9 +103,9 @@ class AudioSource:
         l_beep_short = 0.5 * np.sin(2 * np.pi * freq_l_short * t_short)
         l_beep_long = 0.5 * np.sin(2 * np.pi * freq_l_long * t_long)
 
-        # ユニット: [ピッ(0.1s)] + [無音(0.9s)]
+        # 単位区間: [短音(0.1s)] + [無音(0.9s)]
         l_unit = np.concatenate([l_beep_short, silence])
-        # メロディ: ユニットx3 + ポーン(2.0s)
+        # 系列: 単位区間 ×3 + 長音(2.0s)
         l_melody = np.concatenate([l_unit, l_unit, l_unit, l_beep_long])
 
         # --- Right Channel ---

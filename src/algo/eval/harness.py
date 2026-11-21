@@ -1,10 +1,9 @@
 """
 ヘッドレス・決定論パイプライン(characterize 用ドライバ)。
 
-main.py の TX→通信路→RX を、UI・実音源・グローバル乱数を排して
-「同じ入力 → 同じ出力」になるよう回す層。ここは数値判断(しきい値)を
-持たず、メトリクスに渡す生信号を取り出すことだけに責務を絞る。
-判定は characterize.py / tests 側で行う。
+main.py の TX→通信路→RX を、UI・実音源・グローバル乱数を排除して実行し、
+同一入力に対して同一出力を得る決定論的な実行層。しきい値による判定は行わず、
+メトリクスへ渡す信号の取得のみを責務とする。判定は characterize.py / tests 側で行う。
 
 決定論の担保:
 - AWGN は `np.random.default_rng(seed)` を注入してノイズ列を固定する。
@@ -41,8 +40,8 @@ def _steady_state(
 ) -> np.ndarray:
     """upfirdn 出力から定常区間 n_coherent サンプルを切り出す(mono / L / R 共通)。
 
-    線形位相 FIR の群遅延 (fir_taps-1)/2(入力レート)を出力レートに換算した分だけ
-    先頭の立ち上がり過渡を捨て、そこからコヒーレント長を取る。
+    線形位相 FIR の群遅延 (fir_taps-1)/2(入力レート基準)を出力レートに換算した長さだけ
+    先頭の過渡応答区間を除去し、その位置からコヒーレント長の区間を抽出する。
     """
     group_delay = (fir_taps - 1) // 2 // decim
     return x[group_delay : group_delay + n_coherent]
@@ -51,9 +50,9 @@ def _steady_state(
 def run_pipeline(audio: np.ndarray, snr_db: float, seed: int) -> PipelineResult:
     """audio を TX→AWGN(seed固定)→RX に通し、L/R と PLL 誤差を返す。
 
-    main.py の受信手順をヘッドレスに再現する。PilotPLL.process は内部状態を
-    進めるため 1 回だけ呼び、その搬送波を _stereo_decode に渡す
-    (_recover_carrier は併用しない。代わりに同等の正規化をここで行う)。
+    main.py の受信手順を UI なしで再現する。PilotPLL.process は内部状態を
+    更新するため 1 回のみ呼び出し、得られた搬送波を _stereo_decode に渡す
+    (_recover_carrier は併用せず、同等の正規化を本関数内で行う)。
 
     Args:
         audio: 入力音声 (N,) モノラル または (N, 2) ステレオ
@@ -73,29 +72,29 @@ def run_pipeline(audio: np.ndarray, snr_db: float, seed: int) -> PipelineResult:
 
     mpx_signal = rx.process(noisy_rf)
 
-    # モノラル復調(main=L+R のみ)。THD/SINAD はステレオ・マトリクスを通さない
-    # この経路で測り、FM 復調チェーン単体の品質を見る。
+    # モノラル復調(main=L+R のみ)。THD/SINAD はステレオ・マトリクスを経由しない
+    # この経路で測定し、FM 復調チェーン単体の品質を評価する。
     mono = rx._mono_decode(mpx_signal)
 
-    # 搬送波再生と誤差ログの回収(誤差は _recover_carrier では捨てられている)
+    # 搬送波再生と位相誤差系列の取得(_recover_carrier は誤差系列を返さないため、ここで取得する)
     carrier_38k, pll_error = rx.pll.process(mpx_signal)
 
-    # _recover_carrier と同じ正規化(振幅を 1.0 に揃える)
+    # _recover_carrier と同一の正規化(振幅をピーク値 1.0 に正規化)
     peak = np.max(np.abs(carrier_38k))
     if peak > 0:
         carrier_38k = carrier_38k / peak
 
     lr = rx._stereo_decode(mpx_signal, carrier_38k)
 
-    # 測定窓の切り出し(受信機は素のストリーミング出力を返すので、定常区間の抽出は
-    # 測定側の責務)。
-    # mono: THD/SINAD は FFT ビンに乗る前提なので、立ち上がり過渡を audio FIR の群遅延ぶん
-    #   捨て、入力と同じコヒーレント長(整数周期)を取る。
+    # 測定窓の切り出し(受信機は未加工のストリーミング出力を返すため、定常区間の抽出は
+    # 測定側の責務とする)。
+    # mono: THD/SINAD は各成分が FFT ビン中心に一致すること(コヒーレント標本化)を前提とするため、
+    #   audio FIR の群遅延に相当する過渡応答区間を除去し、入力と同じコヒーレント長(整数周期)を抽出する。
     mono_ss = _steady_state(
         mono, n_coherent=len(audio), fir_taps=len(rx.audio_fir), decim=rx.audio_dec
     )
-    # L/R: セパレーションは電力比でコヒーレンス不要。ステレオ FIR ぶん群遅延が伸びるので、
-    #   両端の過渡を群遅延+余裕ぶん広めに捨て、残りの定常区間で測る。
+    # L/R: セパレーションは電力比であり、コヒーレント標本化を要しない。ステレオ FIR の分だけ群遅延が
+    #   増加するため、両端の過渡区間を群遅延にマージンを加えた長さだけ除去し、残る定常区間で測定する。
     warm192 = 2 * rx.stereo_group_delay + (len(rx.audio_fir) - 1) // 2
     warm = warm192 // rx.audio_dec + 50
     return PipelineResult(

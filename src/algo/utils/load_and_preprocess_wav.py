@@ -18,7 +18,9 @@ def load_and_preprocess_wav(
     Args:
         filename: ファイルパス
         target_fs: 目標サンプリング周波数
-        mono: Trueなら強制的にモノラル化、Falseなら元のチャンネル数を維持
+        to_mono: True ならモノラルへダウンミックスし、False ならステレオ (N, 2) として返す
+            (モノラル入力は両チャネルへ複製する)
+        normalize_peak: 正規化後のピーク振幅
 
     Returns:
         np.ndarray: 音声データ (N,) または (N, 2)

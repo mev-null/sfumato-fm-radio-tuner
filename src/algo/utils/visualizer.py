@@ -15,15 +15,15 @@ def plot_signal_analysis(
     figsize: tuple = (12, 8),
 ):
     """
-    時間領域の波形と、周波数領域のスペクトルを同時にプロットします。
+    時間領域の波形と周波数領域のスペクトルを併せて描画する。
 
     Args:
         signal (np.ndarray): 入力信号データ（実数または複素数）
         fs (float): サンプリング周波数 [Hz]
         title (str): グラフのタイトル
-        zoom_usec (float): 時間軸の拡大範囲 [マイクロ秒] (デフォルト: 100μs)
+        zoom_usec (float): 時間軸の表示範囲 [マイクロ秒] (既定値: 100μs)
         carrier_freq (float, optional): 搬送波周波数のマーカー位置 [Hz]
-        xlim_freq (list, optional): 周波数領域のグラフの定義域
+        xlim_freq (list, optional): 周波数軸の表示範囲
         figsize (tuple): 図のサイズ
     """
 
@@ -31,7 +31,7 @@ def plot_signal_analysis(
     N = len(signal)
     t = np.arange(N) / fs
 
-    # 複素信号(IQ)か実信号かで処理を分ける
+    # 複素信号(IQ)と実信号で処理を分岐する
     is_complex = np.iscomplexobj(signal)
 
     # --- 1. 時間軸プロット (Time Domain) ---
@@ -39,12 +39,12 @@ def plot_signal_analysis(
 
     ax_time = axes[0]
 
-    # ズーム範囲のサンプル数を計算
+    # 表示範囲のサンプル数を算出する
     zoom_samples = int(zoom_usec * 1e-6 * fs)
     if zoom_samples > N:
         zoom_samples = N
     if zoom_samples < 2:
-        zoom_samples = N  # 安全策
+        zoom_samples = N  # 表示範囲が 2 サンプル未満の場合は全区間を表示する
 
     # 時間軸をマイクロ秒単位に変換してプロット
     t_zoom = t[:zoom_samples] * 1e6
@@ -73,7 +73,7 @@ def plot_signal_analysis(
     # FFT
     n_fft = min(65536, N)
     window = hann(n_fft)
-    # データが少なすぎる場合の安全策
+    # データ長が FFT 長に満たない場合はゼロ詰めする
     if len(signal) < n_fft:
         sig_fft_in = np.pad(signal, (0, n_fft - len(signal))) * window
     else:
@@ -93,11 +93,11 @@ def plot_signal_analysis(
             ax_freq.axvline(x=-carrier_freq / 1e3, color="r", linestyle=":", alpha=0.5)
         ax_freq.legend()
 
-    # 表示範囲の制限 ---
+    # 表示範囲の設定
     if xlim_freq is not None:
         ax_freq.set_xlim(xlim_freq)
     else:
-        # デフォルト: 全帯域
+        # 既定値: 全帯域
         ax_freq.set_xlim([xf.min() / 1e3, xf.max() / 1e3])
 
     ax_freq.set_title("Frequency Domain (Spectrum)")

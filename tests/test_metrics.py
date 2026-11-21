@@ -1,12 +1,11 @@
 """
-メトリクス層の契約テスト(red → green の的)。
+メトリクス層の契約テスト。
 
-ここは「メトリクスの定義が正しいか」を、答えが分かっている合成信号で確かめる
-ユニットテスト。algo/eval/metrics.py を実装すると green になる。
-（後段 1.7 で、実際の復調パイプライン出力をこれらの関数に通してゲート化する。）
+メトリクスの定義の正しさを、理論値が既知の合成信号で検証するユニットテスト。
+実際の復調パイプライン出力に対する品質ゲートは tests/test_quality_gate.py(1.7)が扱う。
 
-コヒーレントサンプリング(整数周期)になるよう fs/N/f0 を選んでいるので、
-FFT のビンが基本波・高調波にちょうど乗る。
+コヒーレント標本化(整数周期)となるよう fs/N/f0 を選んでいるため、
+基本波・高調波が FFT ビン中心に一致する。
 """
 
 import numpy as np
@@ -41,7 +40,7 @@ def test_sinad_pure_sine_is_high():
 
 
 def test_channel_separation_db_matches_power_ratio():
-    # 駆動側 振幅 1.0、漏れ側 振幅 0.01 → 電力比 1e4 → 40 dB
+    # 駆動側 振幅 1.0、漏洩側 振幅 0.01 → 電力比 1e4 → 40 dB
     t = _t()
     driven = 1.0 * np.sin(2 * np.pi * F0 * t)
     leak = 0.01 * np.sin(2 * np.pi * F0 * t)
@@ -49,7 +48,7 @@ def test_channel_separation_db_matches_power_ratio():
 
 
 def test_pll_lock_time_detects_settling():
-    # 前半 0.1 s は誤差大、以降ゼロ → ロック時刻 = 0.1 s
+    # 先頭 0.1 s は誤差が大きく、以降は 0 → ロック時刻 = 0.1 s
     fs = 1_000.0
     error = np.concatenate([np.ones(100), np.zeros(900)])
     t_lock = metrics.pll_lock_time(error, fs, tol=0.1, hold_samples=10)

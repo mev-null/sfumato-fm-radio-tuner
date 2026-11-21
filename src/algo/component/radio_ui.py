@@ -21,7 +21,7 @@ class RadioUI:
 
     @staticmethod
     def header():
-        """起動時のASCIIアート表示"""
+        """起動時のロゴ(ASCII アート)表示"""
         os.system("cls" if os.name == "nt" else "clear")
         logo = r"""
 {c}
@@ -46,7 +46,7 @@ ____) || |     | |__| || |  | |/ ____ \    | |   | |__| |
 
     @staticmethod
     def on_air_animation(duration=3):
-        """ON AIRの点滅演出"""
+        """ON AIR 表示の点滅アニメーション"""
         print()
         for _ in range(duration * 2):
             sys.stdout.write(
@@ -65,7 +65,7 @@ ____) || |     | |__| || |  | |/ ____ \    | |   | |__| |
 
     @staticmethod
     def tuning_animation():
-        """チューニング（選局）演出"""
+        """選局(チューニング)表示のアニメーション"""
         print(f"{RadioUI.YELLOW}Scanning Frequencies...{RadioUI.RESET}")
         target_freq = 80.0
         current_freq = 76.0
@@ -86,7 +86,7 @@ ____) || |     | |__| || |  | |/ ____ \    | |   | |__| |
     @staticmethod
     def signal_meter(snr):
         """信号強度メーターの表示"""
-        bars = int(snr / 5)  # 5dBごとに1メモリ
+        bars = int(snr / 5)  # 5dB ごとに 1 目盛
         meter = "█" * bars + "░" * (10 - bars)
         color = (
             RadioUI.GREEN if snr > 20 else (RadioUI.YELLOW if snr > 10 else RadioUI.RED)
@@ -95,19 +95,19 @@ ____) || |     | |__| || |  | |/ ____ \    | |   | |__| |
 
     @staticmethod
     def reception_success(filename):
-        """受信成功時のレトロなディスプレイ演出"""
+        """受信完了時の表示パネル"""
         print(
             f"\n{RadioUI.GREEN}{RadioUI.BOLD}   >>> SIGNAL LOCKED! <<<   {RadioUI.RESET}\n"
         )
         time.sleep(0.5)
 
-        # 枠のデザイン
+        # 枠の幅
         width = 50
         print(f"{RadioUI.CYAN}╔{'═' * width}╗{RadioUI.RESET}")
 
         # 1. ステータス表示 (STEREOランプなど)
         status = f"{RadioUI.RED}● STEREO{RadioUI.RESET}   {RadioUI.GREEN}● TUNED{RadioUI.RESET}   {RadioUI.YELLOW}80.0 MHz{RadioUI.RESET}"
-        # ANSIエスケープシーケンスを含むので長さ計算を調整して中央寄せ
+        # ANSI エスケープシーケンスを含むため、表示幅を考慮して余白を調整する
         print(
             f"{RadioUI.CYAN}║{RadioUI.RESET}   {status}      {RadioUI.CYAN}║{RadioUI.RESET}"
         )
@@ -122,17 +122,17 @@ ____) || |     | |__| || |  | |/ ____ \    | |   | |__| |
             f"{RadioUI.CYAN}║{RadioUI.RESET}  NOW PLAYING: {RadioUI.BOLD}{display_name:<33}{RadioUI.RESET} {RadioUI.CYAN}║{RadioUI.RESET}"
         )
 
-        # 3. ビジュアライザーアニメーション
+        # 3. レベル表示のアニメーション
         print(
             f"{RadioUI.CYAN}║{RadioUI.RESET}                                                  {RadioUI.CYAN}║{RadioUI.RESET}"
         )
 
-        # 5フレームだけ動かす
+        # 6 フレームを描画する
         bars = [" ", "▂", "▃", "▅", "▆", "▇", "█"]
         for _ in range(6):
             # ランダムな高さのバーを生成
             eq = "".join([random.choice(bars) for _ in range(20)])
-            # 両側に配置
+            # 左右に配置する
             visualizer = f"{RadioUI.GREEN}{eq}{RadioUI.RESET}      {RadioUI.GREEN}{eq}{RadioUI.RESET}"
 
             sys.stdout.write(
