@@ -106,3 +106,119 @@ def plot_signal_analysis(
     ax_freq.grid(True, linestyle="--", alpha=0.6)
 
     plt.show()
+
+
+# --- 入出力比較(make run の解析グラフ) ---------------------------------------
+
+
+def split_channels(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """入力形状 (N,) / (N, 1) / (N, 2) によらず L, R の 2 系列を返す。"""
+    if data.ndim == 1:
+        return data, data
+    if data.ndim == 2 and data.shape[1] == 2:
+        return data[:, 0], data[:, 1]
+    if data.ndim == 2 and data.shape[1] == 1:
+        flat = data.flatten()
+        return flat, flat
+    raise ValueError(f"Unexpected data shape: {data.shape}")
+
+
+def estimate_lag(in_ch: np.ndarray, out_ch: np.ndarray) -> int:
+    """相互相関により、入力に対する出力の遅延 [サンプル] を推定する。"""
+    m = min(len(in_ch), len(out_ch))
+    seg = slice(m // 4, m // 4 + min(40000, m // 2))
+    x = in_ch[seg] - np.mean(in_ch[seg])
+    y = out_ch[seg] - np.mean(out_ch[seg])
+    xc = np.correlate(y, x, mode="full")
+    return int(np.argmax(np.abs(xc)) - (len(x) - 1))
+
+
+def gain_match(in_ch: np.ndarray, out_ch: np.ndarray, lag: int) -> float:
+    """遅延整列した全区間の RMS 比から、出力に乗じる振幅補正係数を求める。
+
+    受信機の周波数弁別器は出力を最大周波数偏移で正規化していないため、
+    出力は入力に対して一定の利得(約 −14.7 dB)をもつ。時間波形と PSD の
+    双方に同一の係数を適用し、入出力を同一スケールで比較できるようにする。
+    """
+    if lag >= 0:
+        i, o = in_ch, out_ch[lag:]
+    else:
+        i, o = in_ch[-lag:], out_ch
+    n = min(len(i), len(o))
+    ri, ro = np.sqrt(np.mean(i[:n] ** 2)), np.sqrt(np.mean(o[:n] ** 2))
+    return ri / ro if ro > 0 else 1.0
+
+
+def plot_stereo_analysis(
+    audio_in: np.ndarray,
+    audio_out: np.ndarray,
+    fs: float,
+    filename: str,
+    n_display: int = 1000,
+    f_max: float = 15_000.0,
+):
+    """入力と復調出力を L/R ごとに比較する解析グラフを生成し、保存する。
+
+    上段は遅延整列・振幅補正した時間波形の重ね合わせと残差(In−Out)、
+    下段は入出力のパワースペクトル密度。遅延は L チャネルから推定し、
+    両チャネルに共通に適用する。振幅補正係数はチャネルごとに求める(いずれも表示専用)。
+
+    Args:
+        audio_in: 入力音声 (N,) または (N, 2)
+        audio_out: 復調音声 (N,) または (N, 2)
+        fs: サンプリング周波数 [Hz]
+        filename: 保存先のパス
+        n_display: 時間波形として表示するサンプル数
+        f_max: PSD の表示上限周波数 [Hz]
+
+    Returns:
+        matplotlib.figure.Figure: 生成した図
+    """
+    in_l, in_r = split_channels(audio_in)
+    out_l, out_r = split_channels(audio_out)
+
+    lag = estimate_lag(in_l, out_l)  # 群遅延 [サンプル]
+    start = min(len(in_l) // 4, max(0, len(in_l) - n_display - abs(lag)))
+    t_axis = np.arange(n_display) / fs * 1000
+    delay_ms = lag / fs * 1000
+
+    channels = [
+        ("Left", "L", in_l, out_l, "blue", "cyan"),
+        ("Right", "R", in_r, out_r, "red", "orange"),
+    ]
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    for col, (name, ch, x_in, x_out, c_in, c_out) in enumerate(channels):
+        gain = gain_match(x_in, x_out, lag)
+        x_out = x_out * gain
+
+        # --- 上段: 時間波形(遅延整列・振幅補正)+ 残差 ---
+        i = x_in[start : start + n_display]
+        o = x_out[start + lag : start + lag + n_display]
+        ax = axes[0, col]
+        ax.plot(t_axis, i, label=f"In ({ch})", color=c_in, alpha=0.5)
+        ax.plot(t_axis, o, label=f"Out ({ch})", color=c_out, alpha=0.8, linestyle="--")
+        ax.plot(t_axis, i - o, label="In−Out", color="gray", alpha=0.6, lw=0.8)
+        ax.set_title(f"{name} Channel (Time Domain, delay {delay_ms:.2f}ms aligned)")
+        ax.set_xlabel("Time [ms]")
+        ax.set_ylabel(
+            "Amplitude"
+        )  # 直流成分を持たない信号のため 0 を中心に正負へ振れる
+        ax.legend(loc="upper right")
+        ax.grid(True, alpha=0.3)
+
+        # --- 下段: パワースペクトル密度 ---
+        ax = axes[1, col]
+        ax.psd(x_in, Fs=fs, NFFT=1024, color=c_in, label=f"In ({ch})")
+        ax.psd(
+            x_out, Fs=fs, NFFT=1024, color=c_out, label=f"Out ({ch})", linestyle="--"
+        )
+        ax.set_title(
+            f"{name} Channel (PSD, output gain-matched {20 * np.log10(gain):+.1f} dB)"
+        )
+        ax.set_xlim(0, f_max)
+        ax.legend(loc="upper right")
+
+    fig.tight_layout()
+    fig.savefig(filename)
+    return fig
