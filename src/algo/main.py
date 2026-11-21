@@ -124,13 +124,30 @@ def main():
         lag = estimate_lag(in_l, out_l)  # 群遅延 [サンプル]
         start = min(len(in_l) // 4, max(0, len(in_l) - limit - abs(lag)))
 
+        def gain_match(in_ch, out_ch):
+            """遅延整列した全区間の RMS 比から、出力に乗じる振幅補正係数を求める(表示用)。
+
+            受信機の周波数弁別器は出力を最大周波数偏移で正規化していないため、
+            出力は入力に対して一定の利得(約 −14.7 dB)をもつ。時間波形と PSD の
+            双方に同一の係数を適用し、入出力を同一スケールで比較できるようにする。
+            """
+            if lag >= 0:
+                i, o = in_ch, out_ch[lag:]
+            else:
+                i, o = in_ch[-lag:], out_ch
+            n = min(len(i), len(o))
+            ri, ro = np.sqrt(np.mean(i[:n] ** 2)), np.sqrt(np.mean(o[:n] ** 2))
+            return ri / ro if ro > 0 else 1.0
+
+        gain_l = gain_match(in_l, out_l)
+        gain_r = gain_match(in_r, out_r)
+        out_l = out_l * gain_l
+        out_r = out_r * gain_r
+
         def aligned(in_ch, out_ch):
-            """定常区間を遅延整列・振幅整合して (入力, 出力) を返す(表示用)。"""
+            """定常区間を遅延整列して (入力, 出力) を返す(表示用。出力は振幅補正済み)。"""
             i = in_ch[start : start + limit]
             o = out_ch[start + lag : start + lag + limit]
-            ri, ro = np.sqrt(np.mean(i**2)), np.sqrt(np.mean(o**2))
-            if ro > 0:
-                o = o * (ri / ro)
             return i, o
 
         plt.figure(figsize=(14, 10))
@@ -171,7 +188,9 @@ def main():
 
         # --- [左下] Left Ch 周波数特性 (PSD) ---
         plt.subplot(2, 2, 3)
-        plt.title("Left Channel (PSD)")
+        plt.title(
+            f"Left Channel (PSD, output gain-matched {20 * np.log10(gain_l):+.1f} dB)"
+        )
         plt.psd(in_l, Fs=settings.AUDIO_FS, NFFT=1024, color="blue", label="In (L)")
         plt.psd(
             out_l,
@@ -186,7 +205,9 @@ def main():
 
         # --- [右下] Right Ch 周波数特性 (PSD) ---
         plt.subplot(2, 2, 4)
-        plt.title("Right Channel (PSD)")
+        plt.title(
+            f"Right Channel (PSD, output gain-matched {20 * np.log10(gain_r):+.1f} dB)"
+        )
         plt.psd(in_r, Fs=settings.AUDIO_FS, NFFT=1024, color="red", label="In (R)")
         plt.psd(
             out_r,
