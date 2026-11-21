@@ -4,7 +4,7 @@ An FM stereo broadcast chain, transmitter → AWGN channel → receiver, modeled
 
 日本語版: [README.ja.md](README.ja.md)
 
-<img width="1400" height="1000" alt="first_ancem92_analysis" src="https://github.com/user-attachments/assets/a0f4a1f1-e2b0-4021-9e59-ff494015a0eb" />
+<img width="1400" height="1000" alt="first_ancem92_analysis" src="docs/images/first_ancem92_analysis.png" />
 
 *Simulation result for stereo music (`make run`). Top: input and demodulated output overlaid in the time domain after delay alignment, with the residual (In−Out). Bottom: power spectral density of input and output, for each channel.*
 

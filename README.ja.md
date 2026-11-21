@@ -4,7 +4,7 @@ FM ステレオ放送の送信 → 通信路(AWGN)→ 受信を、Python/NumPy �
 
 English: [README.md](README.md)
 
-<img width="1400" height="1000" alt="first_ancem92_analysis" src="https://github.com/user-attachments/assets/a0f4a1f1-e2b0-4021-9e59-ff494015a0eb" />
+<img width="1400" height="1000" alt="first_ancem92_analysis" src="docs/images/first_ancem92_analysis.png" />
 
 *ステレオ音楽のシミュレーション結果(`make run`)。上段: 遅延整列した入力と復調出力の時間波形の重ね合わせ、および残差(In−Out)。下段: 入力と出力のパワースペクトル密度。左右チャネルそれぞれについて示す。*
 
