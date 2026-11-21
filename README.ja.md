@@ -4,9 +4,13 @@ FM ステレオ放送の送信 → 通信路(AWGN)→ 受信を、Python/NumPy �
 
 English: [README.md](README.md)
 
+<img width="1400" height="1000" alt="first_ancem92_analysis" src="https://github.com/user-attachments/assets/a0f4a1f1-e2b0-4021-9e59-ff494015a0eb" />
+
+*ステレオ音楽のシミュレーション結果(`make run`)。上段: 遅延整列した入力と復調出力の時間波形の重ね合わせ、および残差(In−Out)。下段: 入力と出力のパワースペクトル密度。左右チャネルそれぞれについて示す。*
+
 ## デモ
 
-実ステレオ音楽を**製品スペック水準**で復調できる。品質は目視ではなく測定で判断する。`make eval` がシード固定の決定論的パイプラインを実行し、結果を Sony ST-5130 スペックでゲートする。
+実ステレオ音楽を**製品スペック水準**で復調できる。品質は目視ではなく測定値で判定する。`make eval` がシード固定の決定論的パイプラインを実行し、結果を Sony ST-5130 スペックでゲートする。
 
 | メトリクス | 現状 | 目標(Sony ST-5130) | 状態 |
 |---|---|---|---|
@@ -16,11 +20,7 @@ English: [README.md](README.md)
 
 評価条件は 1 kHz・SNR 40 dB・シード固定(`src/algo/settings.py` の `EVAL_*`)。数値の根拠は ADR([005](docs/adr/adr-005-demod-quality-gate.md) / [006](docs/adr/adr-006-receiver-filter-fir-iir.md) / [007](docs/adr/adr-007-stereo-separation.md))、アルゴリズムの解説は [docs/algorithm.md](docs/algorithm.md)。
 
-https://github.com/user-attachments/assets/f829db6a-4b2d-4762-8efc-568c4f685ed2
-
 **復調音声(ステレオ音楽)**: [原曲](https://github.com/user-attachments/files/25324970/first_ancem92.wav) → [復調後](https://github.com/user-attachments/files/28670715/first_ancem92.wav)
-
-<img width="1400" height="1000" alt="first_ancem92_analysis" src="https://github.com/user-attachments/assets/a0f4a1f1-e2b0-4021-9e59-ff494015a0eb" />
 
 ## 仕組み
 

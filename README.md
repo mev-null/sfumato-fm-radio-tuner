@@ -4,7 +4,9 @@ An FM stereo broadcast chain, transmitter → AWGN channel → receiver, modeled
 
 日本語版: [README.ja.md](README.ja.md)
 
-<img width="2811" height="853" alt="sfumato-radio-v1-0" src="https://github.com/user-attachments/assets/dd557f31-7457-422a-b91d-ca37e6aa2c50" />
+<img width="1400" height="1000" alt="first_ancem92_analysis" src="https://github.com/user-attachments/assets/a0f4a1f1-e2b0-4021-9e59-ff494015a0eb" />
+
+*Simulation result for stereo music (`make run`). Top: input and demodulated output overlaid in the time domain after delay alignment, with the residual (In−Out). Bottom: power spectral density of input and output, for each channel.*
 
 [![CI](https://github.com/mev-null/sfumato-fm-radio-tuner/actions/workflows/ci.yml/badge.svg)](https://github.com/mev-null/sfumato-fm-radio-tuner/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)
@@ -23,11 +25,7 @@ The receiver decodes real stereo music at commercial-tuner quality. Quality is j
 
 Conditions: 1 kHz tone, SNR 40 dB, fixed seed (`EVAL_*` in `src/algo/settings.py`). The reasoning behind each number is recorded in the ADRs ([005](docs/adr/adr-005-demod-quality-gate.md) / [006](docs/adr/adr-006-receiver-filter-fir-iir.md) / [007](docs/adr/adr-007-stereo-separation.md)); the algorithm walkthrough is [docs/algorithm.md](docs/algorithm.md) (Japanese).
 
-https://github.com/user-attachments/assets/f829db6a-4b2d-4762-8efc-568c4f685ed2
-
 **Demodulated audio (stereo music):** [original](https://github.com/user-attachments/files/25324970/first_ancem92.wav) → [restored](https://github.com/user-attachments/files/28670715/first_ancem92.wav)
-
-<img width="1400" height="1000" alt="first_ancem92_analysis" src="https://github.com/user-attachments/assets/a0f4a1f1-e2b0-4021-9e59-ff494015a0eb" />
 
 ## How it works
 
